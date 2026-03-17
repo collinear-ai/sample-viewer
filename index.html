@@ -185,7 +185,7 @@ function renderTable(rows, maxRows) {
   return h;
 }
 
-function renderFileContent(data, filename) {
+function renderFileContent(data, filename, sectionType) {
   if (!data) return '<p style="color:#666;">No preview available</p>';
 
   if (data.type === 'table') {
@@ -194,10 +194,10 @@ function renderFileContent(data, filename) {
 
   if (data.type === 'spreadsheet') {
     var sheetNames = Object.keys(data.sheets);
-    var safeId = filename.replace(/[^a-z0-9]/gi, '');
+    var safeId = (sectionType || '') + '_' + filename.replace(/[^a-z0-9]/gi, '');
     var h = '<div class="sheet-tabs" id="sheet-tabs-' + safeId + '">';
     sheetNames.forEach(function(name, i) {
-      h += '<div class="sheet-tab' + (i === 0 ? ' active' : '') + '" data-sheet="' + esc(name) + '" data-filename="' + esc(filename) + '">' + esc(name) + '</div>';
+      h += '<div class="sheet-tab' + (i === 0 ? ' active' : '') + '" data-sheet="' + esc(name) + '" data-filename="' + esc(filename) + '" data-section-type="' + (sectionType || '') + '">' + esc(name) + '</div>';
     });
     h += '</div><div class="file-viewer-body" id="sheet-body-' + safeId + '">';
     h += renderTable(data.sheets[sheetNames[0]], 200);
@@ -256,17 +256,14 @@ document.addEventListener('click', function(e) {
   if (!tab) return;
   var filename = tab.dataset.filename;
   var sheetName = tab.dataset.sheet;
-  var task = MANIFEST[currentTask];
-  var loaded = taskDataCache[task.folder];
-  if (!loaded) return;
-  var allFiles = Object.assign({}, loaded.inputFiles, loaded.goldenOutput, loaded.agentOutput);
-  var data = allFiles[filename];
+  var sectionType = tab.dataset.sectionType || '';
+  var data = getFileData(filename, sectionType);
   if (!data || data.type !== 'spreadsheet') return;
 
   tab.parentElement.querySelectorAll('.sheet-tab').forEach(function(t) { t.classList.remove('active'); });
   tab.classList.add('active');
 
-  var safeId = filename.replace(/[^a-z0-9]/gi, '');
+  var safeId = sectionType + '_' + filename.replace(/[^a-z0-9]/gi, '');
   var body = document.getElementById('sheet-body-' + safeId);
   if (body) body.innerHTML = renderTable(data.sheets[sheetName], 200);
 });
@@ -303,15 +300,15 @@ function showFileViewer(card, sectionId, sectionType) {
     card.querySelector('.view-label').textContent = 'Loading...';
     loadTaskData(task.folder, function() {
       data = getFileData(filename, sectionType);
-      renderViewer(card, sectionId, filename, data);
+      renderViewer(card, sectionId, filename, data, sectionType);
     });
     return;
   }
 
-  renderViewer(card, sectionId, filename, data);
+  renderViewer(card, sectionId, filename, data, sectionType);
 }
 
-function renderViewer(card, sectionId, filename, data) {
+function renderViewer(card, sectionId, filename, data, sectionType) {
   var label = card.querySelector('.view-label');
   if (label) label.textContent = 'Click to preview';
 
@@ -324,7 +321,7 @@ function renderViewer(card, sectionId, filename, data) {
 
   var headerHtml = '<div class="file-viewer-header"><span class="fv-title">' + esc(filename) + '</span><div style="display:flex;align-items:center;gap:12px;"><span class="fv-type">' + ext + '</span><button class="file-viewer-close" data-section="' + sectionId + '">Close</button></div></div>';
 
-  viewer.innerHTML = headerHtml + (isSpreadsheet ? '' : '<div class="file-viewer-body">') + renderFileContent(data, filename) + (isSpreadsheet ? '' : '</div>');
+  viewer.innerHTML = headerHtml + (isSpreadsheet ? '' : '<div class="file-viewer-body">') + renderFileContent(data, filename, sectionType) + (isSpreadsheet ? '' : '</div>');
 
   var section = document.getElementById(sectionId);
   section.appendChild(viewer);
